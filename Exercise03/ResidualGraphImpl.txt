@@ -1,0 +1,184 @@
+package solutions.exercise3;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+
+import org.sopra.api.exercises.ExerciseSubmission;
+import org.sopra.api.exercises.exercise3.FlowEdge;
+import org.sopra.api.exercises.exercise3.FlowGraph;
+import org.sopra.api.exercises.exercise3.ResidualEdge;
+import org.sopra.api.exercises.exercise3.ResidualGraph;
+
+/**
+ * Converts a given FlowGraph into its Residualgraph
+ * 
+ * @author Anton Herzog, Adrian Bohnstedt, Ammar Benazza, Laurent Brune
+ * 
+ * @version 1.0
+ *
+ * @param <V>
+ */
+
+public class ResidualGraphImpl<V> implements ResidualGraph<V>, ExerciseSubmission {
+	
+	/*
+	 * Description of instancevariable residualgraph:
+	 * Key of the Map: startingnodes of the edges in the graph, parameter V
+	 * Content of the Map: 
+	 */
+	private Map<V, List<ResidualEdge<V>>> residualgraph;
+	
+	/**
+	 * This constructor receives a FlowGraph and converts it into a ResidualGraph
+	 * This constructor initializes the map residualgraph as a HashMap
+	 * 
+	 * @param flowgraph contains a FlowGraph
+	 */
+	public ResidualGraphImpl(FlowGraph<V> flowgraph) {
+		
+		residualgraph = new HashMap<V, List<ResidualEdge<V>>>();
+		
+		//nodes for the residualgraph
+		Set<V> residual_nodes = flowgraph.getNodes();
+		
+		for(V node:residual_nodes) {
+			
+		//all edges from the node node
+		Collection<FlowEdge<V>> edgelist = flowgraph.edgesFrom(node);
+		
+		//list of all residual edges
+		List<ResidualEdge<V>> resedge_list = new ArrayList<ResidualEdge<V>>();
+			//iterating through edgelist
+			for(FlowEdge<V> fedge:edgelist) {
+				
+				//converting the flowEdge to its residualEdge
+				V startNode = fedge.getStart();
+				V endNode = fedge.getEnd();
+				int resedge_capacity = fedge.getCapacity() - fedge.getFlow();
+				int resedge_reverse_capacity = fedge.getCapacity() + fedge.getFlow();
+				
+				ResidualEdge<V> reverse_edge = new ResidualEdgeImpl<V>(endNode, startNode, resedge_reverse_capacity);
+				ResidualEdge<V> resedge = new ResidualEdgeImpl<V>(startNode, endNode, resedge_capacity);
+				resedge.setReverse(reverse_edge);
+				
+				resedge_list.add(resedge);
+				
+			}
+			residualgraph.put(node, resedge_list);
+		}	
+	}
+
+	/**
+	 * Returns a List of Residualedges, which are connected to node
+	 * 
+	 * @param node this parameter contains a node
+	 * @return returns a list of nodes connected to node
+	 */
+	@Override
+	public List<ResidualEdge<V>> edgesFrom(V node) {
+		
+		if(node==null) {
+			throw new NoSuchElementException("The given node does not exist in the graph!");
+		}else if(!residualgraph.containsKey(node)) {
+			throw new NoSuchElementException("The given node does not exist in the graph!");
+		}
+		
+		return residualgraph.get(node);
+	}
+
+	/**
+	 * Returns the Residualedge between the two entered nodes node1 and node2 if one exists
+	 * 
+	 * @param node1 startnode
+	 * @param node2 endnode
+	 * @return returns the edge between node1 and node2
+	 */
+	@Override
+	public ResidualEdge<V> getEdge(V node1, V node2) {
+		
+		if(node1==null) {
+			throw new IllegalArgumentException("Node1 cannot be null!");
+		}else if(node2==null) {
+			throw new IllegalArgumentException("Node2 cannot be null!");
+		}else if(!residualgraph.containsKey(node1)) {
+			throw new NoSuchElementException("The given node1 does not exist in the graph!");
+		}else if(!residualgraph.containsKey(node2)) {
+			throw new NoSuchElementException("The given node2 does not exist in the graph!");
+		}
+		
+		List<ResidualEdge<V>> edges_node1 = residualgraph.get(node1);
+		List<ResidualEdge<V>> edges_node2 = residualgraph.get(node2);
+		
+		ResidualEdge<V> output = null;
+		
+		for(int i=0; i<edges_node1.size(); i++) {
+			for(int j=0; j<edges_node2.size(); j++) {
+				if(edges_node1.get(i).equals(edges_node2.get(j))) {
+					output = edges_node1.get(i);
+				}
+			}
+		}
+		
+		return output;
+	}
+
+	/**
+	 * Returns a List of all Residualedges
+	 * 
+	 * @return returns a List of all Residualedges
+	 */
+	@Override
+	public List<ResidualEdge<V>> getEdges() {
+
+		//List which contains all edges
+		List<ResidualEdge<V>> output = new ArrayList<ResidualEdge<V>>();
+		//for-loop which iterates over the keys of residualgraph
+		for(V key:residualgraph.keySet()) {
+			//List which contains all residual edges of key
+			List<ResidualEdge<V>> list = residualgraph.get(key);
+			//For-loop to iterate over the list of residual edges
+			for(ResidualEdge<V> edge:list) {
+				//adds the current edge, if the it is not already part of output
+				if(!output.contains(edge)) {
+					output.add(edge);
+				}
+			}
+		}
+		
+		return output;
+	}
+
+	/**
+	 * Returns a Set, which contains all nodes
+	 * 
+	 * @return returns a Set of all nodes
+	 */
+	@Override
+	public Set<V> getNodes() {
+		
+		Set<V> output = new HashSet<V>();
+		
+		//for-each Loop which adds all nodes to the Set output
+		for(HashMap.Entry<V, List<ResidualEdge<V>>> entry:residualgraph.entrySet()) {
+			output.add(entry.getKey());
+		}
+		
+		return output;
+	}
+
+	/**
+	 * Returns the Teamidentifier
+	 * @return returns the Teamidentifier
+	 */
+	@Override
+	public String getTeamIdentifier() {
+		return "G05T01";
+	}
+
+}
