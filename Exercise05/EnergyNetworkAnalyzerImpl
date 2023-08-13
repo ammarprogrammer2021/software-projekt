@@ -1,0 +1,128 @@
+package solutions.exercise5;
+import java.util.Map;
+import java.util.Optional;
+
+import org.sopra.api.exercises.ExerciseSubmission;
+import org.sopra.api.exercises.exercise3.FlowEdge;
+import org.sopra.api.exercises.exercise3.FlowGraph;
+import org.sopra.api.exercises.exercise5.*;
+import org.sopra.api.model.Edge;
+import org.sopra.api.model.EnergyNode;
+import org.sopra.api.model.Graph;
+import org.sopra.api.model.PowerLine;
+import org.sopra.api.model.consumer.Consumer;
+import org.sopra.api.model.producer.Producer;
+
+import solutions.exercise3.FlowGraphImpl;
+import solutions.exercise3.ResidualGraphImpl;
+import solutions.exercise4.FordFulkersonImpl;
+public class EnergyNetworkAnalyzerImpl extends AbstractEnergyNetworkAnalyzer implements ExerciseSubmission{
+	/**
+	 * Constructs the energy network analyser
+	 * 
+	 * @autor Anton Herzog, Adrian Bohnstedt, Ammar Benazza, Laurent Brune
+	 * @version 1.0
+	 * @param graph the graph of the energy grid
+	 * @param producerCapacities the producer capacities
+	 * @param consumerCapacities the consumer capacities
+	 */
+	public EnergyNetworkAnalyzerImpl(Graph<EnergyNode, PowerLine> graph,
+			Optional<Map<Producer, Integer>> producerCapacities, Optional<Map<Consumer, Integer>> consumerCapacities) {
+		
+		super(graph, producerCapacities, consumerCapacities);
+	}
+	/**
+	 * Calculates maxFlow of the flow Graph and stores production, consumption and the flow of the lines in consumerLevels, producerLevels and powerlineLevels
+	 */
+	@Override
+	public void calculateMaxFlow() {
+		FordFulkersonImpl<EnergyNode> fordFulk = new FordFulkersonImpl<>();
+		fordFulk.findMaxFlow(flowGraph, super_source, super_sink);
+		//storing producer levels
+		for(FlowEdge<EnergyNode> sourceProducerEdge: flowGraph.edgesFrom(super_source)) {
+			int flow = sourceProducerEdge.getFlow();
+			producerLevels.put((Producer) sourceProducerEdge.getEnd(), flow);
+		}
+		//storing consumer levels
+		for(FlowEdge<EnergyNode> sinkConsumerEdge: flowGraph.edgesFrom(super_sink)) {
+			int flow = flowGraph.getEdge(sinkConsumerEdge.getEnd(), super_sink).getFlow();
+			consumerLevels.put((Consumer) flowGraph.getEdge(sinkConsumerEdge.getEnd(), super_sink).getStart(), flow);
+		}
+		//storing power line levels. The direction with higher flow is used
+		for(PowerLine powerLine: powerlineLevels.keySet()) {
+			//if not connected to super_source or super_sink
+			if(!flowGraph.edgesFrom(super_sink).contains(powerLine) && !flowGraph.edgesFrom(super_source).contains(powerLine)) {
+				int flow = powerLine.getFlow();
+				int flowOtherDirection = flowGraph.getEdge(powerLine.getEnd(), powerLine.getStart()).getFlow();
+				//setting flow to the higher flow
+				if(flowOtherDirection > flow) {
+					flow = flowOtherDirection;
+				}
+				powerlineLevels.put(powerLine , flow);
+			}
+		}
+	}
+	/**
+	 * Creates a flow graph of the energy grid.
+	 * 
+	 * @param graph The graph of energy nodes and power lines
+	 * @param producerCapacities a map of producers and their capacities
+	 * @param consumerCapacities a map of the consumers and their capacities
+	 * @return the created flow graph
+	 */
+	@Override
+	public FlowGraph<EnergyNode> createFlowGraph(Graph<EnergyNode, PowerLine> graph,
+			Optional<Map<Producer, Integer>> producerCapacities, Optional<Map<Consumer, Integer>> consumerCapacities) {
+		
+		FlowGraph<EnergyNode> flowGraph = new FlowGraphImpl<>();
+		//adds all the nodes from graph to the flow graph
+		flowGraph.addNode(super_sink);
+		flowGraph.addNode(super_source);
+		for(EnergyNode node: graph.getNodes()) {
+			flowGraph.addNode(node);
+		}
+		//adding two flow equal flow edges in opposed direction and equal capacity for each PowerLine of the graph. The capacity is equal to the PowerLine
+		for(PowerLine line:graph.getEdges()) {
+			flowGraph.addEdge(line.getStart(), line.getEnd(), line.getCapacity());
+			flowGraph.addEdge(line.getEnd(), line.getStart(), line.getCapacity());	
+		}
+		//connecting super sink and super source
+		for(EnergyNode node: graph.getNodes()) {
+			//for producer type energy nodes edges from super source to each producer are created
+			if(node instanceof Producer) {
+				if(producerCapacities.isPresent()) {
+					flowGraph.addEdge(super_source, node, producerCapacities.get().get(node));
+					flowGraph.addEdge(node, super_source, producerCapacities.get().get(node));
+				}
+				else {
+					flowGraph.addEdge(super_source, node, node.getEnergyLevel());
+					flowGraph.addEdge(node, super_source, node.getEnergyLevel());
+				}
+			}
+			//for consumer type energy nodes edges to super sink are created
+			if(node instanceof Consumer) {
+				if(consumerCapacities.isPresent()) {
+					flowGraph.addEdge(node, super_sink, consumerCapacities.get().get(node));
+					flowGraph.addEdge(super_sink, node, consumerCapacities.get().get(node));
+				}
+				else {
+					flowGraph.addEdge(node, super_sink, node.getEnergyLevel());
+					flowGraph.addEdge(super_sink, node, node.getEnergyLevel());
+				}
+					
+			}
+		}
+		
+		return flowGraph;
+	}
+	/**
+	 * Gets Team Identifier
+	 * 
+	 * @return Team Identifier
+	 */
+	@Override
+	public String getTeamIdentifier() {
+		return "G05T01";
+	}
+	
+}
